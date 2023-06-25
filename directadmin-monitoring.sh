@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
 # Directadmin Monitoring
 ## Settings
-discord=`url`
+discord="url"
 HOSTNAME=`hostname`
-DIRECTADMIN=`yes or no`  ## will disable DirectAdmin-related monitoring
+DIRECTADMIN="yes or no"  ## will disable DirectAdmin-related monitoring
+
+# Function to add the cron job
+add_cron_job() {
+    # Get the current user
+    user=$(whoami)
+
+    # Check if the cron job already exists
+    if crontab -l | grep -q "/usr/local/sbin/directadmin-monitoring.sh"; then
+        echo "Cron job already exists. Skipping..."
+    else
+        # Add the cron job to the user's crontab
+        (crontab -l 2>/dev/null; echo "0 * * * * /usr/local/sbin/directadmin-monitoring.sh") | crontab -
+        echo "Cron job added successfully."
+    fi
+}
 
 # Check if there is enough available disk space
 total_space=$(df -H | awk '{if($NF=="/") print $2}' | tr -d 'G')
@@ -23,6 +38,15 @@ if (( $free_ram < 1024 )); then
     RAM_ALERT='{"content": "Alert for: '${HOSTNAME}', Error: Not enough free RAM. Available RAM: '${free_ram}' MB"}'
 curl -H "Content-Type: application/json" -X POST -d "$RAM_ALERT" "$discord"    
 wait $!
+fi
+
+# Check Load Average
+load_average=$(uptime | awk -F'[a-z]:' '{ print $2 }' | awk -F', ' '{ print $1 }')
+if (( $(bc <<< "$load_average > 1.0") )); then
+    echo "Error: High load average. Current load average: ${load_average}"
+    LOAD_ALERT='{"content": "Alert for: '${HOSTNAME}', Error: High load average. Current load average: '${load_average}'"}'
+    curl -H "Content-Type: application/json" -X POST -d "$LOAD_ALERT" "$discord"
+    wait $!
 fi
 
 
