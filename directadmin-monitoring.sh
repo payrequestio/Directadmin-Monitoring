@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Directadmin Monitoring
 ## Settings
-discord="URL"
+discord=`url`
 HOSTNAME=`hostname`
+DIRECTADMIN=`yes or no`  ## will disable DirectAdmin-related monitoring
 
 # Check if there is enough available disk space
 total_space=$(df -H | awk '{if($NF=="/") print $2}' | tr -d 'G')
@@ -26,11 +27,15 @@ fi
 
 
 # Check if there is no large Exim Mail Queue
-mail_queue=$(exim -bpc)
-if (( $mail_queue > 50 )); then
-    echo "Error: Large mail queue. Email in the mail queue: ${mail_queue}"
-    QUEUE_ALERT='{"content": "Alert for: '${HOSTNAME}', Error: Large mail queue. Email in the mail queue: '${mail_queue}' "}'
-curl -H "Content-Type: application/json" -X POST -d "$QUEUE_ALERT" "$discord"    
-wait $!
+if [[ "$DIRECTADMIN" == "yes" ]]; then
+    # Check if there is no large Exim Mail Queue
+    mail_queue=$(exim -bpc)
+    if (( mail_queue > 50 )); then
+        echo "Error: Large mail queue. Email in the mail queue: $mail_queue"
+        QUEUE_ALERT='{"content": "Alert for: '${HOSTNAME}', Error: Large mail queue. Email in the mail queue: '${mail_queue}' "}'
+        curl -H "Content-Type: application/json" -X POST -d "$QUEUE_ALERT" "$discord"
+        wait $!
+    fi
 fi
+
 
